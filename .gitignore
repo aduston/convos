@@ -1,4 +1,6 @@
+*.pyc
 node_modules/
+venv/
 *creds.js
 *creds.py
-
+awsconfig.py
