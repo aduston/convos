@@ -1,6 +1,8 @@
+.DS_Store
 *.pyc
 node_modules/
 venv/
 *creds.js
+*creds.json
 *creds.py
 awsconfig.py
