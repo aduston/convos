@@ -29,9 +29,10 @@ print(pprint.pformat(r.json()))
 # 400
 # {u'code': 400,
 #  u'code_description': u'Bad Request',
-#  u'error': u"unable to verify callback url 'https://xuyv2beqpj.execute-api.us-east-1.amazonaws.com/prod/SpeechToTextCallback' , server responded with status code: 400"}
+#  u'error': u"unable to verify callback url 'https://<redacted>.execute-api.us-east-1.amazonaws.com/prod/SpeechToTextCallback' , server responded with status code: 400"}
 
-# and no http call is logged on the server.
+# and no http call is logged on the server. Note: the actual url does
+# not contain "<redacted>"
 
 r = requests.get(
     secrets.callback_url, params=dict(challenge_string="is this going to work?"))
