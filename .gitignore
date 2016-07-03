@@ -5,4 +5,5 @@ venv/
 *creds.js
 *creds.json
 *creds.py
+ffmpeg
 awsconfig.py

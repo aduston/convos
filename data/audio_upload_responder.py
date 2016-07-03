@@ -5,6 +5,8 @@ import subprocess
 import logging
 import boto3
 import secrets
+import requests
+import urllib
 import google_Drive
 
 logger = logging.getLogger()
@@ -38,7 +40,7 @@ def _save_record(timestamp, left_job_id, right_job_id):
 def _save_mp3_to_gdrive(mp3_file):
     google_drive.save_file(mp3_file)
 
-def _call_watson(ogg_file, callback_url=None):
+def _call_watson(ogg_file):
     watson_opts = dict(
         continuous="true",
         inactivity_timeout="-1",
@@ -46,12 +48,14 @@ def _call_watson(ogg_file, callback_url=None):
         smart_formatting="false",
         profanity_filter="false"
     )
-    if callback_url is not None:
-        watson_opts['callback_url'] = callback_url
+    if secrets.callback_url is not None:
+        watson_opts['callback_url'] = secrets.callback_url
         watson_opts['events'] = 'recognitions.completed'
     url = "https://stream.watsonplatform.net/speech-to-text/api/v1/recognitions"
     url = "{0}?{1}".format(url, urllib.urlencode(watson_opts))
 
+    logger.info("Calling watson url {0}".format(url))
+    
     with open(ogg_file, 'r') as f:
         r = requests.post(
             url,
