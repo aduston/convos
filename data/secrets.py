@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 import sys
 import json
@@ -48,6 +50,4 @@ def load_creds():
     _creds_read = True
 
 if __name__ == '__main__':
-    load_creds()
-    print(watson_username)
-    load_creds()
+    write_creds_file()
