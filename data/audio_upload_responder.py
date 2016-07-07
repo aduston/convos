@@ -8,6 +8,7 @@ import secrets
 import requests
 import urllib
 import google_drive
+import session_store
 import tempfile
 import time
 
@@ -18,16 +19,21 @@ def respond_to_file(mp3_file):
     # for running locally
     secrets.load_creds()
     timestamp = os.path.basename(mp3_file).split(".")[0]
+    try:
+        timestamp = int(timestamp)
+    except ValueError:
+        logger.error('timestamp (file name) must be integral')
+        return
     left, right = _newogg("left"), _newogg("right")
     try:
         _split_and_convert_to_ogg(mp3_file, left, right)
     except subprocess.CalledProcessError, e:
         logger.error(e.output)
         return
-    left_id = _call_watson(left, "{0}:left".format(timestamp))
-    right_id = _call_watson(right, "{0}.right".format(timestamp))
-    _save_record(left_id, timestamp, 'left')
-    _save_record(right_id, timestamp, 'right')
+    shard_id = 0 # could be a random in in [0, 256)
+    left_id = _call_watson(left, "{0}:{1}:left".format(shard_id, timestamp))
+    right_id = _call_watson(right, "{0}:{1}:right".format(shard_id, timestamp))
+    session_store.save_session_record(shard_id, timestamp, left_id, right_id)
     _save_mp3_to_gdrive(mp3_file)
 
 def respond_to_s3(key):
@@ -38,17 +44,6 @@ def respond_to_s3(key):
     os.environ["PATH"] = "{0}:{1}".format(
         os.environ["PATH"], os.environ["LAMBDA_TASK_ROOT"])
     logger.info("Set path to {0}".format(os.environ["PATH"]))
-
-def _save_record(transcript_id, timestamp, side):
-    client = boto3.client('dynamodb')
-    client.put_item(
-        TableName='Recordings',
-        Item={
-            'Id': { 'S': transcript_id },
-            'Timestamp': { 'S': timestamp },
-            'Side': { 'S': side },
-            'CurrentTime': { 'N': time.time() }
-        })
 
 def _save_mp3_to_gdrive(mp3_file):
     google_drive.save_file(mp3_file)
@@ -104,6 +99,6 @@ def _newogg(prefix):
 
 if __name__ == '__main__':
     logging.basicConfig()
-    mp3_file = os.path.join(os.path.dirname(__file__), '..', 'talk', 'simpletest.mp3')
+    mp3_file = os.path.join(os.path.dirname(__file__), '..', 'talk', '20050630.mp3')
     mp3_file = os.path.abspath(mp3_file)
     respond_to_file(mp3_file)

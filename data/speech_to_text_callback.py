@@ -15,11 +15,13 @@ def handle_callback(event, context):
             return "no challenge string, but that's okay!"
     else:
         body = event['body']
-        timestamp, side = body['user_token'].split('.')
+        shard_id, timestamp, side = body['user_token'].split(':')
         transcript_id = body['id']
-        _save_transcript_results(transcript_id, timestamp, side)
-        return "ok"
+        can_process = session_store.recording_complete(
+            transcript_id, int(shard_id), int(timestamp), side)
+        if can_process:
+            _process(int(shard_id), int(timestamp))
 
-def _save_transcript_results(transcript_id, timestamp, side):
+def _process(shard_id, timestamp):
     # TODO: write me
     pass
