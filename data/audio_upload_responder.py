@@ -18,23 +18,20 @@ logger.setLevel(logging.INFO)
 def respond_to_file(mp3_file):
     # for running locally
     secrets.load_creds()
-    timestamp = os.path.basename(mp3_file).split(".")[0]
-    try:
-        timestamp = int(timestamp)
-    except ValueError:
-        logger.error('timestamp (file name) must be integral')
-        return
+    timestamp = int(os.path.basename(mp3_file).split(".")[0])
     left, right = _newogg("left"), _newogg("right")
     try:
         _split_and_convert_to_ogg(mp3_file, left, right)
     except subprocess.CalledProcessError, e:
         logger.error(e.output)
         return
-    shard_id = 0 # could be a random in in [0, 256)
+    shard_id = timestamp % 16
     left_id = _call_watson(left, "{0}:{1}:left".format(shard_id, timestamp))
+    session_store.save_session_record(shard_id, timestamp, left_id, 'None')
     right_id = _call_watson(right, "{0}:{1}:right".format(shard_id, timestamp))
-    session_store.save_session_record(shard_id, timestamp, left_id, right_id)
-    _save_mp3_to_gdrive(mp3_file)
+    session_store.update_session_record(
+        shard_id, timestamp, 'right', right_id, False)
+    google_drive.save_file(mp3_file, 'audio/mpeg')
 
 def respond_to_s3(key):
     # for running from AWS lambda
@@ -44,9 +41,6 @@ def respond_to_s3(key):
     os.environ["PATH"] = "{0}:{1}".format(
         os.environ["PATH"], os.environ["LAMBDA_TASK_ROOT"])
     logger.info("Set path to {0}".format(os.environ["PATH"]))
-
-def _save_mp3_to_gdrive(mp3_file):
-    google_drive.save_file(mp3_file)
 
 def _call_watson(ogg_file, label):
     watson_opts = dict(
