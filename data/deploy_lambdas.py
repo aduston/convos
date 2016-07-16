@@ -7,11 +7,14 @@ import boto3
 import tempfile
 import secrets
 
-def _make_zip(zip_file):
+def _make_zip(zip_file, include_ffmpeg):
     data_dir = os.path.dirname(os.path.realpath(__file__))
+    files_to_include = ['encrypted_secrets.json']
+    if include_ffmpeg:
+        files_to_include.append('ffmpeg')
     with zipfile.ZipFile(zip_file, 'w', zipfile.ZIP_DEFLATED) as deployment:
         for f in os.listdir(data_dir):
-            if f.endswith('.py') or f in ['ffmpeg', 'encrypted_creds.json']:
+            if f.endswith('.py') or f in files_to_include:
                 deployment.write(os.path.join(data_dir, f), f)
         site_packages_dir = os.path.abspath(os.path.join(
             data_dir, '..', 'venv', 'lib', 'python2.7', 'site-packages'))
@@ -30,16 +33,25 @@ def _update_function(client, function_name, zip_file_bytes):
         Publish=True)
 
 def _update_all():
-    secrets.write_creds_file()
-    zip_file_bytes = None
-    with tempfile.TemporaryFile() as temp_file:
-        _make_zip(temp_file)
-        temp_file.seek(0)
-        zip_file_bytes = temp_file.read()
+    secrets.write_secrets_file()
+    zip_bytes = {
+        True: _zip_file_bytes(True),
+        False: _zip_file_bytes(False)
+    }
     client = boto3.client('lambda')
-    function_names = ["SpeechToTextCallback"]
-    for function_name in function_names:
-        _update_function(client, function_name, zip_file_bytes)
+    functions = [
+        dict(name="SpeechToTextCallback", include_ffmpeg=False),
+        dict(name="AudioUploadResponder", include_ffmpeg=True)
+    ]
+    for function in functions:
+        _update_function(
+            client, function['name'], zip_bytes[function['include_ffmpeg']])
+
+def _zip_file_bytes(include_ffmpeg):
+    with tempfile.TemporaryFile() as temp_file:
+        _make_zip(temp_file, include_ffmpeg)
+        temp_file.seek(0)
+        return temp_file.read()
 
 def _make_zip_file():
     with open('lambda.zip', 'wb') as f:

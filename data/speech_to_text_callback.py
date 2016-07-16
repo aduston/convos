@@ -11,7 +11,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 def handle_callback(event, context):
-    secrets.load_creds()
+    secrets.load()
     if event["method"] == "GET":
         query = event['query']
         if 'challenge_string' in query:

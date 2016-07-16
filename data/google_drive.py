@@ -7,6 +7,8 @@ import json
 import os
 import httplib2
 
+FOLDER_ID = '0ByRPCyLgUZBTZy1GbDliY3Z5Yms'
+
 def _get_access_token_record():
     client = boto3.client('dynamodb')
     response = client.get_item(
@@ -33,7 +35,7 @@ def _set_access_token_record(token_expiry, access_token, refresh_token):
         })
 
 def _get_credentials():
-    secrets.load_creds()
+    secrets.load()
     token_expiry, access_token, refresh_token = _get_access_token_record()
     return client.OAuth2Credentials(
         access_token,
@@ -46,25 +48,40 @@ def _get_credentials():
         scopes=["https://www.googleapis.com/auth/drive.file"])
 
 def _save_credentials(creds):
-    secrets.load_creds()
+    secrets.load()
     token_expiry, access_token, refresh_token = _get_access_token_record()
     if creds.token_expiry != token_expiry or creds.access_token != access_token:
         _set_access_token_record(token_expiry, access_token, refresh_token)
 
 def save_file(file_name, mime_type):
+    # note this function is idempotent, and therefore potentially
+    # destructive. in other words, it will try to delete any files
+    # with this name from the directory prior to creating a new one.
     credentials = _get_credentials()
     http = credentials.authorize(httplib2.Http())
     service = discovery.build('drive', 'v3', http=http)
-    f = service.files().create(
+    files = service.files()
+    gdrive_file_name = os.path.basename(file_name)
+    _delete_existing(gdrive_file_name, files)
+    f = files.create(
         body={
-            'parents': ['0ByRPCyLgUZBTZy1GbDliY3Z5Yms'],
-            'name': os.path.basename(file_name),
+            'parents': [FOLDER_ID],
+            'name': gdrive_file_name,
             'viewersCanCopyContent': True,
             'mimeType': mime_type
         },
         media_body=file_name).execute()
+    print("created {0}".format(f['id']))
     _save_credentials(credentials)
-    return f.get('id')
+    return f['id']
+
+def _delete_existing(file_name, files):
+    query = "name = '{0}' and '{1}' in parents".format(file_name, FOLDER_ID)
+    file_listing = files.list(q=query).execute()
+    file_ids = [f['id'] for f in file_listing['files']]
+    for file_id in file_ids:
+        print("deleting {0}".format(file_id))
+        files.delete(fileId=file_id).execute()
 
 if __name__ == '__main__':
-    print save_file('../talk/simpletest.mp3', 'audio/mpeg')
+    print save_file('../talk/20050630.mp3', 'audio/mpeg')

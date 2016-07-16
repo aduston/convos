@@ -11,13 +11,14 @@ import google_drive
 import session_store
 import tempfile
 import time
+import json
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 def respond_to_file(mp3_file):
     # for running locally
-    secrets.load_creds()
+    secrets.load()
     timestamp = int(os.path.basename(mp3_file).split(".")[0])
     left, right = _newogg("left"), _newogg("right")
     try:
@@ -26,21 +27,37 @@ def respond_to_file(mp3_file):
         logger.error(e.output)
         return
     shard_id = timestamp % 16
+    logger.info("sending left side of {0} to watson".format(timestamp))
     left_id = _call_watson(left, "{0}:{1}:left".format(shard_id, timestamp))
     session_store.save_session_record(shard_id, timestamp, left_id, 'None')
+    logger.info("sending right side of {0} to watson".format(timestamp))
     right_id = _call_watson(right, "{0}:{1}:right".format(shard_id, timestamp))
     session_store.update_session_record(
         shard_id, timestamp, 'right', right_id, False)
+    logger.info("saving {0} to gdrive".format(timestamp))
     google_drive.save_file(mp3_file, 'audio/mpeg')
+    logger.info("done with {0}".format(timestamp))
+    # TODO: save mp3 to s3?
 
-def respond_to_s3(key):
-    # for running from AWS lambda
-    # see
+def lambda_handler(event, context):
+    secrets.load()
     # https://aws.amazon.com/blogs/compute/running-executables-in-aws-lambda/
-    secrets.load_creds()
+    logger.info("Received event: {0}".format(json.dumps(event)))
     os.environ["PATH"] = "{0}:{1}".format(
         os.environ["PATH"], os.environ["LAMBDA_TASK_ROOT"])
     logger.info("Set path to {0}".format(os.environ["PATH"]))
+    s3_record = event['Records'][0]['s3']
+    bucket = s3_record['bucket']['name']
+    key = urllib.unquote_plus(s3_record['object']['key']).decode('utf8')
+    respond_to_s3(bucket, key)
+
+def respond_to_s3(bucket, key):
+    s3 = boto3.client('s3')
+    temp_file = "/tmp/{0}".format(key)
+    logger.info("going to try to download {0}/{1}".format(bucket, key))
+    s3.download_file(bucket, key, temp_file)
+    respond_to_file(temp_file)
+    # TODO: delete key from bucket?
 
 def _call_watson(ogg_file, label):
     watson_opts = dict(

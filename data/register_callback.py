@@ -5,7 +5,7 @@ import secrets
 import urllib
 import pprint
 
-secrets.load_creds()
+secrets.load()
 
 r = requests.post(
     "https://stream.watsonplatform.net/speech-to-text/api/v1/register_callback?{0}".format(
