@@ -20,7 +20,7 @@ def respond_to_file(mp3_file):
     # for running locally
     secrets.load()
     timestamp = int(os.path.basename(mp3_file).split(".")[0])
-    left, right = _newogg("left"), _newogg("right")
+    left, right = _newogg("left", timestamp), _newogg("right", timestamp)
     try:
         _split_and_convert_to_ogg(mp3_file, left, right)
     except subprocess.CalledProcessError, e:
@@ -100,8 +100,8 @@ def _split_and_convert_to_ogg(file_name, left_file, right_file):
         stderr=subprocess.STDOUT)
     logger.info("Ran ffmpeg, got output: {0}".format(output))
 
-def _newogg(prefix):
-    file_name = "/tmp/{0}.ogg".format(prefix)
+def _newogg(prefix, timestamp):
+    file_name = "/tmp/{0}{1}.ogg".format(prefix, timestamp)
     try:
         os.remove(file_name)
     except:
