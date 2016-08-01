@@ -20,7 +20,8 @@ if not os.path.exists(f):
     print "File {0} doesn't exist".format(f)
     exit(0)
 
-client = boto3.client('s3')
+session = boto3.Session(profile_name='convos')
+client = session.client('s3')
 s3_key = os.path.basename(f)
 
 with open(f, 'r') as fd:
