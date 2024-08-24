@@ -1,0 +1,5 @@
+# must be a subset of main requirements.txt one directory level up
+google-cloud-storage==2.18.2
+Flask==3.0.3
+gunicorn==22.0.0
+Werkzeug==3.0.3
