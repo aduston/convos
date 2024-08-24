@@ -69,8 +69,8 @@ def process_normalize_request(
         output_info_file_uri: str,
         ) -> None:
     """
-    Downloads the input file, normalizes it and obtains audio info,
-    then uploads both the normalized file and audio info.
+    Downloads the input file, normalizes it, and obtains audio info.
+    Uploads both the normalized file and audio info.
     """
     storage_client = storage.Client()
     output_wav_blob = storage.Blob.from_string(
@@ -87,7 +87,7 @@ def process_normalize_request(
         output_wav_blob.upload_from_file(output_temp_file)
 
 
-@app.route("/normalize")
+@app.route("/")
 def normalize():
     """
     Flask endpoint for normalizing audio files.
@@ -100,11 +100,6 @@ def normalize():
 
 
 if __name__ == '__main__':
-    # app.run(
-    #     debug=True,
-    #     host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
-    process_normalize_request(
-        "gs://psycho-convos/20161109.mp3",
-        "gs://psycho-convos/normalized/20161109.wav",
-        "gs://psycho-convos/normalized/20161109_info.txt"
-    )
+    app.run(
+        debug=True,
+        host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))

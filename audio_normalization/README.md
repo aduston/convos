@@ -1,1 +1,0 @@
-`audio_normalization` is a tiny Flask-based web service that gets deployed as a Cloud Run service. Its job is to take input audio files in a bucket, obtain information on them using ffprobe, convert them to linear16 using ffmpeg, and then save them in a target bucket.
