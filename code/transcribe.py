@@ -5,12 +5,12 @@ Speech-to-Text API
 """
 
 import asyncio
-import json
 import os
 from typing import cast
 from google.cloud import storage
 from google.cloud.speech_v2 import SpeechAsyncClient
 from google.cloud.speech_v2.types import cloud_speech
+from google.protobuf import json_format
 
 PROJECT_ID = "aad-personal"
 BUCKET_NAME = "psycho-convos"
@@ -31,7 +31,8 @@ async def transcribe(
         language_codes=["en-US"],
         model=model
     )
-    file_metadata = cloud_speech.BatchRecognizeFileMetadata(uri=blob.path)
+    blob_uri = f"gs://{blob.bucket.name}/{blob.name}"
+    file_metadata = cloud_speech.BatchRecognizeFileMetadata(uri=blob_uri)
     request = cloud_speech.BatchRecognizeRequest(
         recognizer=f"projects/{PROJECT_ID}/locations/global/recognizers/_",
         config=config,
@@ -47,15 +48,17 @@ async def transcribe(
         ),
     )
     client = SpeechAsyncClient()
-    operation = await client.batch_recognize(request=request, timeout=120)
+    operation = await client.batch_recognize(request=request, timeout=300)
     response = await operation.result()
     response = cast(cloud_speech.BatchRecognizeResponse, response)
     for audio_uri, result in response.results.items():
+        print("Error: ", result.error)
         bucket_name = audio_uri.split('/')[2]
         file_name = os.path.basename(audio_uri).replace(".wav", "_.txt")
         output_blob = storage.Blob(f"transcriptions/{file_name}", bucket_name)
+        transcript_json = json_format.MessageToJson(result.transcript)
         output_blob.upload_from_string(
-            data=json.dumps(result.transcript, indent=4),
+            data=transcript_json,
             client=storage_client)
 
 
@@ -68,7 +71,8 @@ async def main() -> None:
     bucket = storage_client.bucket(BUCKET_NAME)
     for raw_blob in bucket.list_blobs(match_glob="normalized/*.wav"):
         blob = cast(storage.Blob, raw_blob)
-        print(f"Transcribing {blob.path}")
+        blob_uri = f"gs://{blob.bucket.name}/{blob.name}"
+        print(f"Transcribing {blob_uri}")
         await transcribe(blob, storage_client)
         break
 
