@@ -5,40 +5,56 @@ Speech-to-Text API
 """
 
 import asyncio
-import os
 from typing import cast
 from google.cloud import storage
 from google.cloud.speech_v2 import SpeechAsyncClient
 from google.cloud.speech_v2.types import cloud_speech
-from google.protobuf import json_format
 
 PROJECT_ID = "aad-personal"
 BUCKET_NAME = "psycho-convos"
 
 
-async def transcribe(
-    blob: storage.Blob,
-    storage_client: storage.Client,
-    model: str = "long"
-) -> None:
+def create_two_channel_recognition_config(
+        model: str) -> cloud_speech.RecognitionConfig:
     """
-    Transcribes the audio file in the given blob. The model parameter
-    is "long" by default, but can also be set to "telephony", which
-    might work better for our audio.
+    Returns a RecognitionConfig object with the given model
     """
-    config = cloud_speech.RecognitionConfig(
+    # Note that diarization appears to not be supported for v2.
+    # So we can only use v2 when there are two channels
+    # (one channel per speaker)
+    features = cloud_speech.RecognitionFeatures(
+        profanity_filter=False,
+        enable_automatic_punctuation=True,
+        multi_channel_mode=(
+            cloud_speech.RecognitionFeatures.MultiChannelMode.
+            SEPARATE_RECOGNITION_PER_CHANNEL
+        ),
+    )
+    return cloud_speech.RecognitionConfig(
         auto_decoding_config=cloud_speech.AutoDetectDecodingConfig(),
+        features=features,
         language_codes=["en-US"],
         model=model
     )
+
+
+def create_recognize_request(
+    blob: storage.Blob,
+    config: cloud_speech.RecognitionConfig
+) -> cloud_speech.BatchRecognizeRequest:
+    """
+    Returns a BatchRecognizeRequest object with the given blob and config
+    """
     blob_uri = f"gs://{blob.bucket.name}/{blob.name}"
     file_metadata = cloud_speech.BatchRecognizeFileMetadata(uri=blob_uri)
-    request = cloud_speech.BatchRecognizeRequest(
+    return cloud_speech.BatchRecognizeRequest(
         recognizer=f"projects/{PROJECT_ID}/locations/global/recognizers/_",
         config=config,
         files=[file_metadata],
         recognition_output_config=cloud_speech.RecognitionOutputConfig(
-            inline_response_config=cloud_speech.InlineOutputConfig(),
+            gcs_output_config=cloud_speech.GcsOutputConfig(
+                uri=f"gs://{blob.bucket.name}/transcriptions/"
+            )
         ),
         processing_strategy=(
             # according to https://t.ly/ZWMas, "Dynamic batching enables lower
@@ -47,19 +63,26 @@ async def transcribe(
             DYNAMIC_BATCHING
         ),
     )
+
+
+async def transcribe_two_channel(
+    blob: storage.Blob,
+    model: str = "latest_long"
+) -> None:
+    """
+    Transcribes the audio file in the given blob. The audio file needs
+    to have two channels, one channel per speaker.
+    """
+    config = create_two_channel_recognition_config(model)
+    request = create_recognize_request(blob, config)
     client = SpeechAsyncClient()
     operation = await client.batch_recognize(request=request, timeout=300)
     response = await operation.result()
     response = cast(cloud_speech.BatchRecognizeResponse, response)
     for audio_uri, result in response.results.items():
         print("Error: ", result.error)
-        bucket_name = audio_uri.split('/')[2]
-        file_name = os.path.basename(audio_uri).replace(".wav", "_.txt")
-        output_blob = storage.Blob(f"transcriptions/{file_name}", bucket_name)
-        transcript_json = json_format.MessageToJson(result.transcript)
-        output_blob.upload_from_string(
-            data=transcript_json,
-            client=storage_client)
+        print(audio_uri)
+        print(result.uri)
 
 
 async def main() -> None:
@@ -73,7 +96,7 @@ async def main() -> None:
         blob = cast(storage.Blob, raw_blob)
         blob_uri = f"gs://{blob.bucket.name}/{blob.name}"
         print(f"Transcribing {blob_uri}")
-        await transcribe(blob, storage_client)
+        await transcribe_two_channel(blob)
         break
 
 
