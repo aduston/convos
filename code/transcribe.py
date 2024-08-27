@@ -5,6 +5,8 @@ Speech-to-Text API
 """
 
 import asyncio
+import json
+import os
 from typing import cast
 from google.cloud import storage
 from google.cloud.speech_v2 import SpeechAsyncClient
@@ -12,6 +14,7 @@ from google.cloud.speech_v2.types import cloud_speech
 
 PROJECT_ID = "aad-personal"
 BUCKET_NAME = "psycho-convos"
+EXPERIMENT_LOG_DIR = "/Users/aduston/convo_experiments"
 
 
 def create_two_channel_recognition_config(
@@ -65,6 +68,26 @@ def create_recognize_request(
     )
 
 
+def log_experiment_locally(
+    audio_uri: str,
+    request: cloud_speech.BatchRecognizeRequest,
+    output_uri: str,
+    billed_duration_seconds: int
+) -> None:
+    """
+    Writes a file to local filesystem with the experiment details
+    """
+    output_file_name = os.path.join(
+        EXPERIMENT_LOG_DIR,
+        output_uri.split("/")[-1].replace(".json", ".txt"))
+    with open(output_file_name, "w", encoding="utf-8") as f:
+        f.write(json.dumps({
+            "audio_uri": audio_uri,
+            "request": cloud_speech.BatchRecognizeRequest.to_dict(request),
+            "output_uri": output_uri,
+            "billed_duration_seconds": billed_duration_seconds}, indent=4))
+
+
 async def transcribe_two_channel(
     blob: storage.Blob,
     model: str = "latest_long"
@@ -83,6 +106,12 @@ async def transcribe_two_channel(
         print("Error: ", result.error)
         print(audio_uri)
         print(result.uri)
+        log_experiment_locally(
+            audio_uri,
+            request,
+            result.uri,
+            response.total_billed_duration.seconds,
+        )
 
 
 async def main() -> None:

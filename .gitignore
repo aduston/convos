@@ -8,3 +8,4 @@ venv/
 *secrets.json
 ffmpeg
 awsconfig.py
+.ipynb_checkpoints/

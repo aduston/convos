@@ -4,4 +4,5 @@ google-cloud-video-transcoder==1.12.5
 google-cloud-videointelligence==2.13.5
 Flask==3.0.3
 gunicorn==22.0.0
+jupyter==1.0.0
 Werkzeug==3.0.3
