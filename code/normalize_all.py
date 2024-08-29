@@ -24,10 +24,12 @@ async def main() -> None:
     Send request to the audio-normalizer service
     """
     params = {
-        "input_file_uri": "gs://psycho-convos/20161128.mp3",
-        "output_wav_file_uri": "gs://psycho-convos/normalized/20161128.wav",
+        "input_file_uri":
+            "gs://psycho-convos/Video-20230209_135719-Meeting Recording.mp4",
+        "output_wav_file_uri":
+            "gs://psycho-convos/normalized/20230209_135719.wav",
         "output_info_file_uri":
-            "gs://psycho-convos/normalized/20161128_info.txt"
+            "gs://psycho-convos/normalized/20230209_135719_info.txt"
     }
     url = f"{ENDPOINT}/?{urlencode(params)}"
     req = urllib.request.Request(url, method="GET")
