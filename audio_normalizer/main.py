@@ -97,6 +97,7 @@ def normalize():
     output_info_file_uri = request.args.get("output_info_file_uri")
     process_normalize_request(
         input_file_uri, output_wav_file_uri, output_info_file_uri)
+    return "OK"
 
 
 if __name__ == '__main__':

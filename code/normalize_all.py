@@ -1,5 +1,10 @@
 """
-Runs the normalization process for all audio files in the input bucket
+Runs the normalization process for all audio files in the input bucket.
+
+The normalization process is defined in the audio_normalizer directory.
+
+In order to run this, one must have a service account key stored locally,
+with the GOOGLE_APPLICATION_CREDENTIALS environment variable pointing to it.
 """
 
 import asyncio
@@ -9,7 +14,9 @@ from urllib.parse import urlencode
 import google.auth.transport.requests
 import google.oauth2.id_token
 
-ENDPOINT = "https://audio-normalizer-7mh2x2q26q-uc.a.run.app"
+# ENDPOINT is output by the gcloud run deploy command in the audio_normalizer
+# README file
+ENDPOINT = "https://audio-normalizer-299102048728.us-central1.run.app"
 
 
 async def main() -> None:

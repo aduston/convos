@@ -6,6 +6,9 @@ To build locally, push, and deploy the service:
 export IMAGE_URL=us-central1-docker.pkg.dev/aad-personal/dockers/audio_normalizer:latest
 docker build . --platform linux/amd64 --tag $IMAGE_URL
 docker push $IMAGE_URL
-gcloud run deploy audio-normalizer --image $IMAGE_URL --region us-central1 --no-allow-unauthenticated
+gcloud run deploy audio-normalizer --image $IMAGE_URL --region us-central1 --no-allow-unauthenticated --memory=1G
 ```
 
+
+
+To call this, see normalize_all.py.
