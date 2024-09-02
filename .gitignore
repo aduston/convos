@@ -9,4 +9,4 @@ venv/
 ffmpeg
 awsconfig.py
 .ipynb_checkpoints/
-explore.ipynb
+explore*.ipynb

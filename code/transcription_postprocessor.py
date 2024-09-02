@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from google.cloud.speech_v2.types import cloud_speech
+from typing import cast
+from google.cloud.speech_v2.types import cloud_speech as cloud_speech_v2
+from google.cloud.speech_v1.types import cloud_speech as cloud_speech_v1
 
 
 @dataclass
@@ -55,7 +57,7 @@ def mark_echoes(turns: list[SpeakingTurn]) -> None:
 
 
 def turn_multichannel_into_conversation(
-    rec_results: cloud_speech.BatchRecognizeResults
+    rec_results: cloud_speech_v2.BatchRecognizeResults
 ) -> list[SpeakingTurn]:
     turns = [
         SpeakingTurn(
@@ -69,4 +71,44 @@ def turn_multichannel_into_conversation(
     ]
     turns = sorted(turns, key=lambda x: x.end_time)
     mark_echoes(turns)
+    return turns
+
+
+def make_turn(
+    word_infos: list[cloud_speech_v1.WordInfo]
+) -> SpeakingTurn:
+    """
+    Creates a SpeakingTurn from a list of WordInfo objects
+    """
+    confidence = sum(
+        word_info.confidence for word_info in word_infos
+    ) / len(word_infos)
+    return SpeakingTurn(
+        word_infos[0].speaker_tag,
+        " ".join(word_info.word for word_info in word_infos),
+        word_infos[-1].end_time.total_seconds(),
+        confidence
+    )
+
+
+def turn_singlechannel_into_conversation(
+    rec_response: cloud_speech_v1.LongRunningRecognizeResponse
+) -> list[SpeakingTurn]:
+    rec_results = cast(
+        list[cloud_speech_v1.SpeechRecognitionResult],
+        rec_response.results
+    )
+    speaker_tagged_words = rec_results[-1].alternatives[0].words
+    turns = []
+    current_utterance = []
+    current_speaker_label = None
+    for word_info in speaker_tagged_words:
+        if word_info.speaker_tag != current_speaker_label:
+            if len(current_utterance) > 0:
+                turns.append(make_turn(current_utterance))
+            current_speaker_label = word_info.speaker_tag
+            current_utterance = []
+        current_utterance.append(word_info)
+    if len(current_utterance) > 0:
+        turns.append(make_turn(current_utterance))
     return turns
